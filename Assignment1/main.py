@@ -49,7 +49,7 @@ def home_page():
         putInDB(queryString)
 
     data = {'message': 'New user account successfully created', 'code': 'SUCCESS'}
-    return make_response(jsonify(data), 200)
+    return make_response(jsonify(data), 201)
 
 @app.route('/v1/account/<accountId>', methods=['GET'])
 def view_page(accountId):
