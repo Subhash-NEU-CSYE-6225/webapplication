@@ -24,17 +24,10 @@ jobs:
       - uses: actions/checkout@v3
 
       # Runs a single command using the runners shell
-<<<<<<< HEAD
       - name: Setup python 3.10.7
         uses: actions/setup-python@v1
         with:
           python-version: 3.10.7
-=======
-      - name: Setup python 3.10.2
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.10.2
->>>>>>> main
 
       # Runs a set of commands using the runners shell
       - name: Install dependencies
