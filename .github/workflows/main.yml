@@ -37,6 +37,6 @@ jobs:
 
       - name: Test with pytest
         run:
-          python Assignment1/main.py &&
-          sleep 10 &&
+          python Assignment1/main.py &
+          sleep 10 &
           pytest tests/test_main.py
