@@ -15,5 +15,4 @@ def test_home_page():
 
     result2 = requests.post(url,json=myobj2)
 
-    assert result1.status_code==201
     assert result2.status_code==400
