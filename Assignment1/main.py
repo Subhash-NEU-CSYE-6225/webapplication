@@ -37,7 +37,7 @@ def home_page():
     bcrypt = Bcrypt(app)
     if "first_name" not in request.json or "last_name" not in request.json or "password" not in request.json or "username" not in request.json:
         data = {'message': 'Enter all the required details for user creation in the request json', 'code': 'BAD REQUEST'}
-        return make_response(jsonify(data), 400)
+        return make_response(jsonify(data), 402)
     else:
         try:
             first_name = request.json["first_name"]
