@@ -1,0 +1,12 @@
+[Unit]
+Description=Flask web application
+After=syslog.target
+
+[Service]
+User=ubuntu
+ExecStart=/usr/bin/bash -c '/usr/bin/python3  /home/ubuntu/main.py'
+SuccessExitStatus=143
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
