@@ -12,6 +12,8 @@ import json
 import uuid
 import os
 
+app = Flask(__name__)
+
 with open('/etc/environment.json') as config_file:
   config = json.load(config_file)
 
