@@ -6,9 +6,16 @@ import datetime
 from flask_bcrypt import Bcrypt
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, TEXT, Identity, inspect, select, update
 from sqlalchemy_utils import database_exists, create_database
+import boto3
+from botocore.exceptions import ClientError
+import json
+import uuid
+import os
 
-DB_Name='csye6225'
-engine=create_engine('postgresql://postgres:ece18670!@localhost/'+str(DB_Name))
+with open('/etc/environment.json') as config_file:
+  config = json.load(config_file)
+
+engine=create_engine('postgresql://'+str(config.get('DB_USER_NAME'))+':'+str(config.get('DB_PASSWORD'))+'@'+str(config.get('DB_ADDRESS'))+':5432/'+str(config.get('DB_NAME')))
 if not database_exists(engine.url):
     create_database(engine.url)
 
@@ -25,7 +32,22 @@ Column('account_created',String),
 Column('account_updated',String),
 )
 
-app = Flask(__name__)
+Upload_Details = Table(
+'Upload_Details',meta,
+Column('id',Integer,Identity(start=1),primary_key=True),
+Column('user_id',Integer),
+Column('doc_id',String),
+Column('filename',String),
+Column('date_created',String),
+Column('s3_bucket_path',String),
+)
+
+meta_data = Table(
+'meta_data', meta,
+Column('id',Integer,Identity(start=1),primary_key=True),
+Column('user_id',Integer),
+Column('S3_metadata',String),
+)
 
 with app.app_context():
     meta.create_all(engine)
@@ -54,6 +76,194 @@ with app.app_context():
 def healthz():
     data = {'message': 'OK', 'code': '200'}
     return make_response(jsonify(data), 200)
+
+@app.route('/v1/documents/<accountId>', methods=['POST'])
+def documentUpload(accountId):
+    bcrypt = Bcrypt(app)
+    queryStatement = User_Details.select().where(User_Details.c.id==accountId)
+    conn = engine.connect()
+    result = conn.execute(queryStatement)
+    account = result.fetchone()
+    if(account==None):
+        data = {'message':'There is no user with this account ID','code':'NOT FOUND'}
+        return make_response(jsonify(data),400)
+    else:
+        password = account["password"][2:-1]
+        if request.authorization and request.authorization.username==account["username"] and bcrypt.check_password_hash(password,request.authorization.password):
+            uploaded_file = request.files.get('UploadedFile')
+            if  uploaded_file.filename != '':
+                uploaded_file.save(os.path.join('/home/ubuntu',uploaded_file.filename))
+                s3_client = boto3.client('s3')
+                object_id = str(uuid.uuid4())
+                object_name=object_id+"/"+str(uploaded_file.filename)
+                try:
+                    s3_client.upload_file(os.path.join('/home/ubuntu',uploaded_file.filename),config.get('AWS_BUCKET_NAME'),object_name)
+                    head_object = s3_client.head_object(Bucket=config.get('AWS_BUCKET_NAME'),Key=object_name)
+                    conn = engine.connect()
+                    result=conn.execute(Upload_Details.insert(),[{'user_id':accountId,'doc_id':object_id,'filename':str(uploaded_file.filename),'date_created':head_object['ResponseMetadata']['HTTPHeaders']['date'],'s3_bucket_path':"/home/ubuntu"+str(uploaded_file.filename)}])
+                    result1=conn.execute(meta_data.insert(),[{'user_id':accountId,'S3_metadata':str(head_object)}])
+                    #return_json = json.dumps(str(head_object),indent=4,sort_keys=True)
+                    return_json = {'doc_id': object_id,'user_id':accountId,'name':str(uploaded_file.filename),'date_created':head_object['ResponseMetadata']['HTTPHeaders']['date'],'s3_bucket_path':"/home/ubuntu"+str(uploaded_file.filename)}
+                    return make_response(return_json,201)
+                except Exception as e:
+                    # This is a catch all exception, edit this part to fit your needs.
+                    print("Something Happened: ", e)
+                    data = {'message': str(e), 'code': 'File error'}
+                    return make_response(jsonify(data),400)
+            else:
+                data = {'message':'No file is uploaded','code':'File empty'}
+                return make_response(jsonify(data), 400)
+        else:
+            if request.authorization:
+                data = {'message':'Credentials is incorrect'}
+                return make_response(jsonify(data),401)
+            else:
+                data = {'message':'Authorization info is not provided','code':"UNAUTHORIZED"}
+                return make_response(jsonify(data), 401)
+
+@app.route('/v1/documents/<accountId>', methods=['GET'])
+def listDocuments(accountId):
+    bcrypt = Bcrypt(app)
+    queryStatement = User_Details.select().where(User_Details.c.id==accountId)
+    conn = engine.connect()
+    result = conn.execute(queryStatement)
+    account = result.fetchone()
+    if(account==None):
+        data = {'message':'There is no user with this account ID','code':'NOT FOUND'}
+        return make_response(jsonify(data),400)
+    else:
+        password = account["password"][2:-1]
+        if request.authorization and request.authorization.username==account["username"] and bcrypt.check_password_hash(password,request.authorization.password):
+            queryStatement1 = Upload_Details.select().where(Upload_Details.c.user_id==accountId)
+            conn = engine.connect()
+            result = conn.execute(queryStatement1)
+            upload_list = result.fetchall()
+            list1=[]
+            for row in upload_list:
+                a=0
+                for x in row:
+                    x=str(x)
+                    if(a==1):
+                        user_id1=x
+                    if(a==2):
+                        doc_id1=x
+                    if(a==3):
+                        filename1=x
+                    if(a==4):
+                        date_created1=x
+                    if(a==5):
+                        s3_bucket_path1=x
+                    a=a+1
+                row_json={"doc_id":doc_id1,"user_id":user_id1,"name":filename1,"date_created":date_created1,"s3_bucket_path":s3_bucket_path1}
+                list1.append(row_json)
+            return str(list1)
+        else:
+            if request.authorization:
+                data = {'message':'Credentials is incorrect'}
+                return make_response(jsonify(data),401)
+            else:
+                data = {'message':'Authorization info is not provided','code':"UNAUTHORIZED"}
+                return make_response(jsonify(data), 401)
+
+@app.route('/v1/documents/<accountId>/<doc_id>', methods=['GET'])
+def getDocument(accountId,doc_id):
+    bcrypt = Bcrypt(app)
+    queryStatement = User_Details.select().where(User_Details.c.id==accountId)
+    conn = engine.connect()
+    result = conn.execute(queryStatement)
+    account = result.fetchone()
+    if(account==None):
+        data = {'message':'There is no user with this account ID','code':'NOT FOUND'}
+        return make_response(jsonify(data),400)
+    else:
+        password = account["password"][2:-1]
+        if request.authorization and request.authorization.username==account["username"] and bcrypt.check_password_hash(password,request.authorization.password):
+            queryStatement1 = Upload_Details.select().where(Upload_Details.c.user_id==accountId and Upload_Details.c.doc_id==doc_id)
+            conn = engine.connect()
+            result = conn.execute(queryStatement1)
+            upload_list = result.fetchall()
+            list1=[]
+            for row in upload_list:
+                a=0
+                for x in row:
+                    x=str(x)
+                    if(a==1):
+                        user_id1=x
+                    if(a==2):
+                        doc_id1=x
+                    if(a==3):
+                        filename1=x
+                    if(a==4):
+                        date_created1=x
+                    if(a==5):
+                        s3_bucket_path1=x
+                    a=a+1
+                if doc_id==doc_id1:
+                    row_json={"doc_id":doc_id1,"user_id":user_id1,"name":filename1,"date_created":date_created1,"s3_bucket_path":s3_bucket_path1}
+                    list1.append(row_json)
+            return str(list1)
+        else:
+            if request.authorization:
+                data = {'message':'Credentials is incorrect'}
+                return make_response(jsonify(data),401)
+            else:
+                data = {'message':'Authorization info is not provided','code':"UNAUTHORIZED"}
+                return make_response(jsonify(data), 401)
+
+@app.route('/v1/documents/<accountId>/<documentId>', methods=['DELETE'])
+def deleteDocuments(accountId,documentId):
+    bcrypt = Bcrypt(app)
+    queryStatement = User_Details.select().where(User_Details.c.id==accountId)
+    conn = engine.connect()
+    result = conn.execute(queryStatement)
+    account = result.fetchone()
+    if(account==None):
+        data = {'message':'There is no user with this account ID','code':'NOT FOUND'}
+        return make_response(jsonify(data),400)
+    else:
+        password = account["password"][2:-1]
+        if request.authorization and request.authorization.username==account["username"] and bcrypt.check_password_hash(password,request.authorization.password):
+            s3_client = boto3.client("s3")
+            queryStatement1 = Upload_Details.select().where(Upload_Details.c.user_id==accountId)
+            conn = engine.connect()
+            result = conn.execute(queryStatement1)
+            upload_list = result.fetchall()
+            list1=[]
+            for row in upload_list:
+                a=0
+                for x in row:
+                    x=str(x)
+                    if(a==1):
+                        user_id1=x
+                    if(a==2):
+                        doc_id1=x
+                    if(a==3):
+                        filename1=x
+                    if(a==4):
+                        date_created1=x
+                    if(a==5):
+                        s3_bucket_path1=x
+                    a=a+1
+                if documentId==doc_id1:
+                    row_json={"doc_id":doc_id1,"user_id":user_id1,"name":filename1,"date_created":date_created1,"s3_bucket_path":s3_bucket_path1}
+                    list1.append(row_json)
+            if len(list1)==0:
+                data={"message":"There is no document with this document id for this user"}
+                return make_response(jsonify(data),404)
+            else:
+                response = s3_client.delete_object(Bucket=config.get('AWS_BUCKET_NAME'),Key=(row_json["doc_id"]+"/"+row_json["name"]))
+                queryStatement2 = Upload_Details.delete().where(Upload_Details.c.doc_id==documentId)
+                conn = engine.connect()
+                result = conn.execute(queryStatement2)
+                data={"message":"Bucket Deleted successfully"}
+                return make_response(jsonify(data),204)
+        else:
+            if request.authorization:
+                data = {'message':'Credentials is incorrect'}
+                return make_response(jsonify(data),401)
+            else:
+                data = {'message':'Authorization info is not provided','code':"UNAUTHORIZED"}
+                return make_response(jsonify(data), 401)
 
 @app.route('/v1/account', methods=['POST'])
 def home_page():
@@ -104,7 +314,7 @@ def view_page(accountId):
             return make_response(jsonify(data), 200)
         else:
             if request.authorization:
-                data = {'message': 'Authorization info is incorrect','code':	"FORBIDDEN"}
+                data = {'message': 'Authorization info is incorrect','code':"FORBIDDEN"}
                 return make_response(jsonify(data), 403)
             else:
                 data = {'message': 'Authorization info is not provided','code':	"UNAUTHORIZED"}
