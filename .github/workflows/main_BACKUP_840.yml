@@ -37,6 +37,14 @@ jobs:
 
       - name: Test with pytest
         run:
-          python Application/main.py &
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+          python Assignment1/main.py &
           sleep 10 &
+>>>>>>> 117bc09f5591523384b3eac79faea1c5229921ea
+=======
+          python Assignment1/main.py &
+          sleep 10 &
+>>>>>>> 89caec5df4da0a775a9832bdb15b3b0a6c0486d0
           pytest tests/test_main.py
