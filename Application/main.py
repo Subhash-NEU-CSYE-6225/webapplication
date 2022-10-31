@@ -6,7 +6,6 @@ import datetime
 from flask_bcrypt import Bcrypt
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, TEXT, Identity, inspect, select, update
 from sqlalchemy_utils import database_exists, create_database
-from alembic import op
 
 DB_Name='csye6225'
 engine=create_engine('postgresql://postgres:ece18670!@localhost/'+str(DB_Name))
