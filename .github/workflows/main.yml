@@ -50,7 +50,7 @@ jobs:
       with:
         command: build
         arguments: "-color=false -on-error=abort "
-        target: ./packer-ami/AmazonMachineImage.hcl
+        target: ./packer-ami/AmazonMachineImage.pkr.hcl
       env:
         PACKER_LOG: 1
         GITHUB_REPO_PATH: ${{ github.workspace }}
