@@ -10,6 +10,7 @@ packer {
 variable "github_repo" {
   default = env("GITHUB_REPO_PATH")
 }
+
 variable "aws_access_key" {
   type= string
   default = env("MY_ACCESS_KEY")
@@ -68,7 +69,12 @@ build {
   sources = ["source.amazon-ebs.my-ami"]
 
 provisioner "file"{
-    source = "${var.github_repo}/packer-ami/application.service"
+    source = "${var.github_repo}/Application/main.py"
+    destination = "/home/ubuntu/"
+  }
+
+provisioner "file"{
+    source = "${var.github_repo}/packer-ami/webapplication.service"
     destination = "/tmp/"
   }
 
@@ -77,8 +83,7 @@ provisioner "file"{
       "DEBIAN_FRONTEND=noninteractive",
       "CHECKPOINT_DISABLE=1"
     ]
-    
-    script = "${var.github_repo}/packer-ami/script.sh"
+    script = "${var.github_repo}/packer-ami/scripts.sh"
 
   }
   }

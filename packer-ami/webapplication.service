@@ -1,8 +1,11 @@
 [Unit]
-Description=<Flask web application>
-After=network.target
+Description=Flask web application
+After=syslog.target
 
 [Service]
 User=ubuntu
-ExecStart=python /Application/main.py
-Restart=always
+ExecStart=/usr/bin/bash -c '/usr/bin/python3  /home/ubuntu/main.py'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
