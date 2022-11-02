@@ -67,24 +67,18 @@ source "amazon-ebs" "my-ami" {
 build {
   sources = ["source.amazon-ebs.my-ami"]
 
+provisioner "file"{
+    source = "${var.github_repo}/packer-ami/application.service"
+    destination = "/tmp/"
+  }
+
   provisioner "shell" {
     environment_vars = [
       "DEBIAN_FRONTEND=noninteractive",
       "CHECKPOINT_DISABLE=1"
     ]
-    inline = [
-      "sudo apt-get install python3",
-      "sudo apt-get update",
-      "sudo apt-get -y install python3-pip",
-      "sudo pip install flask==2",
-      "sudo pip install psycopg==3",
-      "sudo pip install bcrypt==4",
-      "sudo pip install Flask-Bcrypt==1",
-      "sudo pip install requests==2",
-      "sudo pip install flask-sqlalchemy==1",
-      "sudo pip install sqlalchemy==1",
-      "sudo pip install sqlalchemy_utils",
-      "sudo apt-get -y install postgresql postgresql-contrib",
-    ]
+    
+    script = "${var.github_repo}/packer-ami/script.sh"
+
   }
   }

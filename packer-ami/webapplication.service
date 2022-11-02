@@ -1,0 +1,8 @@
+[Unit]
+Description=<Flask web application>
+After=network.target
+
+[Service]
+User=ubuntu
+ExecStart=python /Application/main.py
+Restart=always
