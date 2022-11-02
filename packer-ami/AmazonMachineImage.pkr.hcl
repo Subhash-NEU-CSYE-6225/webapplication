@@ -77,11 +77,13 @@ provisioner "file"{
     source = "${var.github_repo}/packer-ami/webapplication.service"
     destination = "/tmp/"
   }
+
   provisioner "shell" {
     environment_vars = [
       "DEBIAN_FRONTEND=noninteractive",
       "CHECKPOINT_DISABLE=1"
     ]
     script = "${var.github_repo}/packer-ami/scripts.sh"
+
   }
   }
