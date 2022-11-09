@@ -1,59 +1,36 @@
-from typing import Text
-from unittest import result
 from urllib import response
 from flask import *
 import datetime
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from flask_bcrypt import Bcrypt
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, TEXT, Identity, inspect, select, update
-from sqlalchemy_utils import database_exists, create_database
-
-DB_Name='csye6225'
-engine=create_engine('postgresql://postgres:ece18670!@localhost/'+str(DB_Name))
-if not database_exists(engine.url):
-    create_database(engine.url)
-
-meta = MetaData()
-
-User_Details = Table(
-'User_Details',meta,
-Column('id',Integer,Identity(start=1),primary_key=True),
-Column('first_name',String),
-Column('last_name',String),
-Column('username',String,unique=True),
-Column('password',TEXT),
-Column('account_created',String),
-Column('account_updated',String),
-)
 
 app = Flask(__name__)
 
-with app.app_context():
-    meta.create_all(engine)
-    for a in meta.tables:
-        new_column_list = []
-        s = "select * from public.\""+ str(a) +"\";"
-        conn = engine.connect()
-        result = conn.execute(s)
-        row = result.fetchone()
-        if row!=None:
-            for x in meta.tables[a].columns:
-                new_column = str(x).replace(str(a)+".","")
-                new_column_list.append(new_column)
-                if(new_column not in row.keys()):
-                    table_name = str(a)
-                    column_name = str(new_column)
-                    column_type = str(x.type)
-                    query = 'ALTER TABLE public.\"'+table_name+'\" ADD \"'+column_name+'\" '+column_type+';'
-                    conn.execute(query)
-        else:
-            qs="DROP TABLE public.\""+ str(a) +"\";"
-            conn.execute(qs)
-            meta.create_all(engine)
+def getFromDB(queryString,id):
+    try:
+        conn = psycopg2.connect(database="CSYE_6225", user='postgres', password='ece18670!', host='localhost', port= '5433')
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(queryString,(id,))
+        result = cursor.fetchall()
+        conn.commit()
+        conn.close()
+        return result
+    except:
+        print("Exception in getFromDB function for query: "+queryString+" id: "+ str(id))
+        return [{"Message":"Exception in getFromDB function for query: "+queryString+" id: "+ str(id)}]
 
-@app.route('/healthz', methods=['GET'])
-def healthz():
-    data = {'message': 'OK', 'code': '200'}
-    return make_response(jsonify(data), 200)
+def putInDB(queryString):
+    try:
+        conn = psycopg2.connect(database="CSYE_6225", user='postgres', password='ece18670!', host='localhost', port= '5433')
+        cursor = conn.cursor()
+        cursor.execute(queryString)
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(e)
+        print("Exception in putInDB function for query: "+queryString)
+        return [{"Message":"Exception in putInDB function for query: "+queryString}]
 
 @app.route('/v1/account', methods=['POST'])
 def home_page():
@@ -69,38 +46,32 @@ def home_page():
             username = request.json["username"]
             account_created = str(datetime.datetime.now())
             account_updated = str(datetime.datetime.now())
-            
-            conn = engine.connect()
-            result=conn.execute(User_Details.insert(),[{'first_name':first_name,'last_name':last_name,'username':username,'password':password,'account_created':account_created,'account_updated':account_updated}])
+            queryString = "INSERT INTO public.\"User_Details\"(\"first_name\",\"last_name\",\"Password1\",\"username\",\"account_created\",\"account_updated\") VALUES (%s,%s,%s,%s,%s,%s);"
+
+            conn = psycopg2.connect(database="CSYE_6225", user='postgres', password='ece18670!', host='localhost', port= '5433')
+            cursor = conn.cursor()
+            cursor.execute(queryString,(first_name,last_name,password,username,account_created,account_updated,))
+            conn.commit()
+            conn.close()
         except:
-            data = {'message': 'Error occured while inserting in DB or the username already exits', 'code': 'DB Error'}
+            data = {'message': 'Error occured while inserting in DB', 'code': 'DB Error'}
             return make_response(jsonify(data), 400)
 
-    queryStatement = User_Details.select().where(User_Details.c.username==username)
-    conn = engine.connect()
-    result = conn.execute(queryStatement)
-    account = result.fetchone()
-    if account==None:
-        data = {'message': 'Error occured while inserting in DB or the username already exits', 'code': 'DB Error'}
-        return make_response(jsonify(data), 400)
-    else:
-        data = {"id": account["id"], "first_name": account["first_name"], "last_name": account["last_name"], "username": account["username"], "account_created": account["account_created"], "account_updated": account["account_updated"]}
-        return make_response(jsonify(data), 201)
+    data = {'message': 'New user account successfully created', 'code': 'SUCCESS'}
+    return make_response(jsonify(data), 201)
 
 @app.route('/v1/account/<accountId>', methods=['GET'])
 def view_page(accountId):
     bcrypt = Bcrypt(app)
-    queryStatement = User_Details.select().where(User_Details.c.id==accountId)
-    conn = engine.connect()
-    result = conn.execute(queryStatement)
-    account = result.fetchone()
-    if(account==None):
+    queryStatement = "SELECT * FROM public.\"User_Details\" WHERE \"User_Details\".\"id\"=%s;"
+    account = getFromDB(queryStatement,accountId)
+    if(len(account)==0):
         data = {'message': 'There is no user with this account ID', 'code': 'NOT FOUND'}
         return make_response(jsonify(data), 400)
     else:
-        password = account["password"][2:-1]
-        if request.authorization and request.authorization.username==account["username"] and bcrypt.check_password_hash(password,request.authorization.password):
-            data = {"id": accountId, "first_name": account["first_name"], "last_name": account["last_name"], "username": account["username"], "account_created": account["account_created"], "account_updated": account["account_updated"]}
+        account[0]["Password1"] = account[0]["Password1"][2:-1]
+        if request.authorization and request.authorization.username==account[0]["username"] and bcrypt.check_password_hash(account[0]["Password1"],request.authorization.password):
+            data = {"id": accountId, "first_name": account[0]["first_name"], "last_name": account[0]["last_name"], "username": account[0]["username"], "account_created": account[0]["account_created"], "account_updated": account[0]["account_updated"]}
             return make_response(jsonify(data), 200)
         else:
             if request.authorization:
@@ -114,16 +85,14 @@ def view_page(accountId):
 @app.route('/v1/account/<accountId>', methods=['PUT'])
 def update_page(accountId):
     bcrypt = Bcrypt(app)
-    queryStatement = User_Details.select().where(User_Details.c.id==accountId)
-    conn = engine.connect()
-    result = conn.execute(queryStatement)
-    account = result.fetchone()
-    if(account==None):
+    queryStatement = "SELECT * FROM public.\"User_Details\" WHERE \"User_Details\".\"id\"=%s;"
+    account = getFromDB(queryStatement,accountId)
+    if(len(account)==0):
         data = {'message': 'There is no user with this account ID', 'code': 'NOT FOUND'}
         return make_response(jsonify(data), 400)
     else:
-        password = account["password"][2:-1]
-        if request.authorization and request.authorization.username==account["username"] and bcrypt.check_password_hash(password,request.authorization.password):
+        account[0]["Password1"] = account[0]["Password1"][2:-1]
+        if request.authorization and request.authorization.username==account[0]["username"] and bcrypt.check_password_hash(account[0]["Password1"],request.authorization.password):
             if "first_name" not in request.json and "last_name" not in request.json and "username" not in request.json and "password" not in request.json:
                data = {'message': 'There is no detail provided to update the user', 'code': 'BAD REQUEST'}
                return make_response(jsonify(data), 400)
@@ -131,26 +100,28 @@ def update_page(accountId):
                 first_name = request.json["first_name"]
                 account_updated = str(datetime.datetime.now())
                 queryString = "UPDATE public.\"User_Details\" SET \"first_name\"='" + first_name + "', \"account_updated\"='"+ account_updated + "'WHERE \"id\"='"+ str(accountId) +"';"
-                conn.execute(queryString)
+                putInDB(queryString)
             if "last_name" in request.json:
                 last_name = request.json["last_name"]
                 account_updated = str(datetime.datetime.now())
                 queryString = "UPDATE public.\"User_Details\" SET \"last_name\"='" + last_name + "', \"account_updated\"='"+ account_updated + "' WHERE \"id\"='"+ str(accountId) +"';"
-                conn.execute(queryString)
+                putInDB(queryString)
             if "username" in request.json:
                 username = request.json["username"]
                 account_updated = str(datetime.datetime.now())
                 queryString = "UPDATE public.\"User_Details\" SET \"username\"='" + username + "', \"account_updated\"='"+ account_updated + "' WHERE \"id\"='"+ str(accountId) +"';"
-                conn.execute(queryString)
+                putInDB(queryString)
             if "password" in request.json:
-                newpassword=str(bcrypt.generate_password_hash(request.json["password"]))
+                password=str(bcrypt.generate_password_hash(request.json["password"]))
                 account_updated = str(datetime.datetime.now())
-                u = update(User_Details)
-                u = u.values({"password": newpassword,"account_updated":account_updated})
-                u = u.where(User_Details.c.id == accountId)
-                engine.execute(u)
-            
-            data = {'first_name': first_name}
+                queryString = "UPDATE public.\"User_Details\" SET \"Password1\"=%s, \"account_updated\"=%s WHERE \"id\"='"+ str(accountId) +"';"
+                conn = psycopg2.connect(database="CSYE_6225", user='postgres', password='ece18670!', host='localhost', port= '5433')
+                cursor = conn.cursor()
+                cursor.execute(queryString,(password,account_updated,))
+                conn.commit()
+                conn.close()
+
+            data = {'message': 'The given details are successfully updated', 'code': 'SUCCESS'}
             return make_response(jsonify(data), 204)
         else:
             if request.authorization:
@@ -163,4 +134,3 @@ def update_page(accountId):
 
 if __name__ == '__main__':
     app.run(port=8080)
-        
