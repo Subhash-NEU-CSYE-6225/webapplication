@@ -273,7 +273,7 @@ def home_page():
         return make_response(jsonify(data), 400)
     else:
         try:
-            first_name = request.json["first_name"]
+            firstname = request.json["first_name"]
             last_name = request.json["last_name"]
             password = str(bcrypt.generate_password_hash(request.json["password"]))
             username = request.json["username"]
@@ -281,7 +281,7 @@ def home_page():
             account_updated = str(datetime.datetime.now())
             
             conn = engine.connect()
-            result=conn.execute(User_Details.insert(),[{'first_name':first_name,'last_name':last_name,'username':username,'password':password,'account_created':account_created,'account_updated':account_updated}])
+            result=conn.execute(User_Details.insert(),[{'first_name':firstname,'last_name':last_name,'username':username,'password':password,'account_created':account_created,'account_updated':account_updated}])
         except:
             data = {'message': 'Error occured while inserting in DB or the username already exits', 'code': 'DB Error'}
             return make_response(jsonify(data), 400)
