@@ -78,6 +78,11 @@ provisioner "file"{
     destination = "/tmp/"
   }
 
+provisioner "file"{
+    source = "${var.github_repo}/cloud_watch/AmazonCloudWatch-agent-config.json"
+    destination = "/home/ubuntu/"
+  }
+
   provisioner "shell" {
     environment_vars = [
       "DEBIAN_FRONTEND=noninteractive",

@@ -11,8 +11,11 @@ from botocore.exceptions import ClientError
 import json
 import uuid
 import os
+import logging
 
 app = Flask(__name__)
+
+logging.basicConfig(filename='/home/ubuntu/logs/webapp.log',level=logging.DEBUG,format=f'%(asctime)s %(levelname)s %(threadName)s : %(message)s')
 
 with open('/etc/environment.json') as config_file:
   config = json.load(config_file)
@@ -34,6 +37,12 @@ Column('account_created',String),
 Column('account_updated',String),
 )
 
+api_counter = Table(
+'api_counter',meta,
+Column('api_name',String,primary_key=True),
+Column('count',Integer),
+)
+
 Upload_Details = Table(
 'Upload_Details',meta,
 Column('id',Integer,Identity(start=1),primary_key=True),
@@ -50,6 +59,16 @@ Column('id',Integer,Identity(start=1),primary_key=True),
 Column('user_id',Integer),
 Column('S3_metadata',String),
 )
+
+def initiateApiCounter(apiName):
+    conn = engine.connect()
+    queryStatement = api_counter.select().where(api_counter.c.api_name==apiName)
+    result = conn.execute(queryStatement)
+    api_present = result.fetchone()
+
+    if api_present==None:
+        conn = engine.connect()
+        result=conn.execute(api_counter.insert(),[{'api_name':apiName,'count':0}])
 
 with app.app_context():
     meta.create_all(engine)
@@ -73,14 +92,43 @@ with app.app_context():
             qs="DROP TABLE public.\""+ str(a) +"\";"
             conn.execute(qs)
             meta.create_all(engine)
+    initiateApiCounter('Upload Document')
+    initiateApiCounter('List Documents')
+    initiateApiCounter('Get Documents')
+    initiateApiCounter('Delete Documents')
+    initiateApiCounter('Healthz')
+    initiateApiCounter('Add User')
+    initiateApiCounter('View User')
+    initiateApiCounter('Update User')
+
+def logCounter(apiName):
+    queryStatement = api_counter.select().where(api_counter.c.api_name==apiName)
+    result = conn.execute(queryStatement)
+    api_present = result.fetchone()
+
+    u = update(api_counter)
+    u = u.values({"count": api_present[1]+1})
+    u = u.where(api_counter.c.api_name==apiName)
+    engine.execute(u)
+
+    queryStatement = api_counter.select().where(api_counter.c.api_name==apiName)
+    result = engine.execute('SELECT * FROM public.\"api_counter\"')
+
+    logDict={}
+    for x in result:
+        logDict[x[0]]=x[1]
+
+    app.logger.info(logDict)
 
 @app.route('/healthz', methods=['GET'])
 def healthz():
+    logCounter('Healthz')
     data = {'message': 'OK', 'code': '200'}
     return make_response(jsonify(data), 200)
 
 @app.route('/v1/documents/<accountId>', methods=['POST'])
 def documentUpload(accountId):
+    logCounter('Upload Document')
     bcrypt = Bcrypt(app)
     queryStatement = User_Details.select().where(User_Details.c.id==accountId)
     conn = engine.connect()
@@ -125,6 +173,7 @@ def documentUpload(accountId):
 
 @app.route('/v1/documents/<accountId>', methods=['GET'])
 def listDocuments(accountId):
+    logCounter('List Documents')
     bcrypt = Bcrypt(app)
     queryStatement = User_Details.select().where(User_Details.c.id==accountId)
     conn = engine.connect()
@@ -169,6 +218,7 @@ def listDocuments(accountId):
 
 @app.route('/v1/documents/<accountId>/<doc_id>', methods=['GET'])
 def getDocument(accountId,doc_id):
+    logCounter('Get Documents')
     bcrypt = Bcrypt(app)
     queryStatement = User_Details.select().where(User_Details.c.id==accountId)
     conn = engine.connect()
@@ -214,6 +264,7 @@ def getDocument(accountId,doc_id):
 
 @app.route('/v1/documents/<accountId>/<documentId>', methods=['DELETE'])
 def deleteDocuments(accountId,documentId):
+    logCounter('Delete Documents')
     bcrypt = Bcrypt(app)
     queryStatement = User_Details.select().where(User_Details.c.id==accountId)
     conn = engine.connect()
@@ -268,7 +319,8 @@ def deleteDocuments(accountId,documentId):
                 return make_response(jsonify(data), 401)
 
 @app.route('/v1/account', methods=['POST'])
-def home_page():
+def add_User():
+    logCounter('Add User')
     bcrypt = Bcrypt(app)
     if "first_name" not in request.json or "last_name" not in request.json or "password" not in request.json or "username" not in request.json:
         data = {'message': 'Enter all the required details for user creation in the request json', 'code': 'BAD REQUEST'}
@@ -300,7 +352,8 @@ def home_page():
         return make_response(jsonify(data), 201)
 
 @app.route('/v1/account/<accountId>', methods=['GET'])
-def view_page(accountId):
+def view_User(accountId):
+    logCounter('View User')
     bcrypt = Bcrypt(app)
     queryStatement = User_Details.select().where(User_Details.c.id==accountId)
     conn = engine.connect()
@@ -324,7 +377,8 @@ def view_page(accountId):
 
 
 @app.route('/v1/account/<accountId>', methods=['PUT'])
-def update_page(accountId):
+def update_User(accountId):
+    logCounter('Update User')
     bcrypt = Bcrypt(app)
     queryStatement = User_Details.select().where(User_Details.c.id==accountId)
     conn = engine.connect()
