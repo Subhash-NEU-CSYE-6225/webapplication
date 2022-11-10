@@ -13,9 +13,11 @@ sudo pip install sqlalchemy==1
 sudo pip install sqlalchemy_utils
 sudo pip install psycopg2-binary
 sudo pip install boto3
+sudo pip install statsd
 sudo chmod 755 /home/ubuntu
 sudo chmod 777 /home/ubuntu/main.py
 sudo mkdir -p /home/ubuntu/logs
+sudo chmod 755 /home/ubuntu/logs
 sudo chmod 777 /home/ubuntu/logs
 
 sleep 30
