@@ -12,6 +12,9 @@ import json
 import uuid
 import os
 import logging
+import statsd
+
+c = statsd.StatsClient('localhost',8125)
 
 app = Flask(__name__)
 
