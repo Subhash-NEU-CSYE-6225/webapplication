@@ -17,3 +17,6 @@ sudo chmod 777 /home/ubuntu/main.py
 
 sleep 30
 sudo mv /tmp/webapplication.service /etc/systemd/system/webapplication.service
+
+sudo yum install amazon-cloudwatch-agent -y
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/home/ubuntu/AmazonCloudWatch-agent-config.json -s
