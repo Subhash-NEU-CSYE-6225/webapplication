@@ -15,7 +15,6 @@ import logging
 import time
 import statsd
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
 
 c = statsd.StatsClient('localhost',8125)
 
