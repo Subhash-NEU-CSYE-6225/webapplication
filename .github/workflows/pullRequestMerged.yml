@@ -61,9 +61,8 @@ jobs:
     # Update the system with latest AMI 
     - name: Update the system with latest AMI
       id: AMI
-      shell: pwsh
       run: |
-        ID=`aws ec2 describe-images --owners self --query 'reverse(sort_by(Images,&CreationDate))[0].ImageId' --output text)`
+        ID=$(aws ec2 describe-images --owners self --query 'reverse(sort_by(Images,&CreationDate))[0].ImageId' --output text)
         aws ec2 create-launch-template-version --launch-template-id ${{secrets.LT_ID}} --source-version '$Latest' --launch-template-data '{"ImageId":"'"$ID"'"}'
         aws autoscaling update-auto-scaling-group --auto-scaling-group-name ${{secrets.ASG_NAME}} --launch-template LaunchTemplateName=${{secrets.LT_NAME}},Version='$Latest'
         aws autoscaling start-instance-refresh --auto-scaling-group-name ${{secrets.ASG_NAME}}
