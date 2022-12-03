@@ -21,14 +21,12 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-
-
     # configure AWS keys
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
-        aws-access-key-id: AKIAX3XXRYO45YEQ7S5X
-        aws-secret-access-key: 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
+        aws-access-key-id: ${{ secrets.ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.SECRET_ACCESS }}
         aws-region: us-east-1
     # validate templates
     - name: Validate Template
@@ -44,6 +42,7 @@ jobs:
       with:
         command: init
         target: ./packer-ami/AmazonMachineImage.pkr.hcl
+        
     # build artifact
     - name: Build Artifact
       uses: hashicorp/packer-github-actions@master
@@ -54,3 +53,17 @@ jobs:
       env:
         PACKER_LOG: 1
         GITHUB_REPO_PATH: ${{ github.workspace }}
+
+    # install aws cli
+    - name: Install AWS Cli
+      run: sudo pip install awscli
+
+    # Update the system with latest AMI 
+    - name: Update the system with latest AMI
+      id: AMI
+      shell: pwsh
+      run: |
+        ID=$(aws ec2 describe-images --owners self --query 'reverse(sort_by(Images,&CreationDate))[0].ImageId' --output text)
+        aws ec2 create-launch-template-version --launch-template-id ${{secrets.LT_ID}} --source-version '$Latest' --launch-template-data '{"ImageId":"'"$ID"'"}'
+        aws autoscaling update-auto-scaling-group --auto-scaling-group-name ${{secrets.ASG_NAME}} --launch-template LaunchTemplateName=${{secrets.LT_NAME}},Version='$Latest'
+        aws autoscaling start-instance-refresh --auto-scaling-group-name ${{secrets.ASG_NAME}}
