@@ -9,7 +9,6 @@ packer {
 
 variable "github_repo" {
   default = env("GITHUB_REPO_PATH")
-}
 
 variable "aws_access_key" {
   type= string
