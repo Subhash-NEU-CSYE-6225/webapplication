@@ -154,7 +154,7 @@ def healthz():
     data = {'message': 'OK', 'code': '200'}
     return make_response(jsonify(data), 200)
 
-@app.route('/v1/verifyUserEmail', methods=['GET'])
+@app.route('/v2/verifyUserEmail', methods=['GET'])
 def verificationComplete():
     args = request.args
     username = args.get('email')
@@ -168,7 +168,7 @@ def verificationComplete():
     data = {'message': 'Username verified successfully', 'code': '200'}
     return make_response(jsonify(data), 200)
 
-@app.route('/v1/documents/<accountId>', methods=['POST'])
+@app.route('/v2/documents/<accountId>', methods=['POST'])
 def documentUpload(accountId):
     c.incr("Upload Document")
     logCounter('Upload Document')
@@ -221,7 +221,7 @@ def documentUpload(accountId):
             data = {'message':'The username for this account id is not verified','code':"Not Verified"}
             return make_response(jsonify(data), 400)
 
-@app.route('/v1/documents/<accountId>', methods=['GET'])
+@app.route('/v2/documents/<accountId>', methods=['GET'])
 def listDocuments(accountId):
     c.incr("List Documents")
     logCounter('List Documents')
@@ -274,7 +274,7 @@ def listDocuments(accountId):
             data = {'message':'The username for this account id is not verified','code':"Not Verified"}
             return make_response(jsonify(data), 400)
 
-@app.route('/v1/documents/<accountId>/<doc_id>', methods=['GET'])
+@app.route('/v2/documents/<accountId>/<doc_id>', methods=['GET'])
 def getDocument(accountId,doc_id):
     c.incr("Get Documents")
     logCounter('Get Documents')
@@ -328,7 +328,7 @@ def getDocument(accountId,doc_id):
             data = {'message':'The username for this account id is not verified','code':"Not Verified"}
             return make_response(jsonify(data), 400)
 
-@app.route('/v1/documents/<accountId>/<documentId>', methods=['DELETE'])
+@app.route('/v2/documents/<accountId>/<documentId>', methods=['DELETE'])
 def deleteDocuments(accountId,documentId):
     c.incr("Delete Documents")
     logCounter('Delete Documents')
@@ -392,7 +392,7 @@ def deleteDocuments(accountId,documentId):
             data = {'message':'The username for this account id is not verified','code':"Not Verified"}
             return make_response(jsonify(data), 400)
 
-@app.route('/v1/account', methods=['POST'])
+@app.route('/v2/account', methods=['POST'])
 def add_User():
     c.incr("Add User")
     logCounter('Add User')
@@ -430,7 +430,7 @@ def add_User():
         verifyEmail(account["username"],timeInMins)
         return make_response(jsonify(data), 201)
 
-@app.route('/v1/account/<accountId>', methods=['GET'])
+@app.route('/v2/account/<accountId>', methods=['GET'])
 def view_User(accountId):
     c.incr("View User")
     logCounter('View User')
@@ -462,7 +462,7 @@ def view_User(accountId):
             data = {'message':'The username for this account id is not verified','code':"Not Verified"}
             return make_response(jsonify(data), 400)
 
-@app.route('/v1/account/<accountId>', methods=['PUT'])
+@app.route('/v2/account/<accountId>', methods=['PUT'])
 def update_User(accountId):
     c.incr("Update User")
     logCounter('Update User')
